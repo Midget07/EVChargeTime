@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Para formatear la hora
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const EVChargeCalculatorApp());
@@ -14,11 +15,11 @@ class EVChargeCalculatorApp extends StatelessWidget {
       title: 'Calculadora Carga EV',
       theme: ThemeData(
         useMaterial3: true,
-        appBarTheme: AppBarTheme(
-          backgroundColor: const Color.fromARGB(255, 183, 58, 75),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color.fromARGB(255, 183, 58, 75),
           foregroundColor: Colors.white,
         ),
-        scaffoldBackgroundColor: const Color.fromARGB(255, 255, 255, 255),
+        scaffoldBackgroundColor: Colors.white,
       ),
       home: const ChargeCalculatorScreen(),
     );
@@ -39,6 +40,50 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
   bool isAC = true;
   double amperage = 16;
 
+  late TextEditingController _batteryController;
+
+  @override
+  void initState() {
+    super.initState();
+    _batteryController = TextEditingController();
+    _loadSavedPreferences();
+  }
+
+  @override
+  void dispose() {
+    _batteryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSavedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      batteryCapacity = prefs.getDouble('batteryCapacity') ?? 0;
+      currentPercentage = prefs.getDouble('currentPercentage') ?? 20;
+      targetPercentage = prefs.getDouble('targetPercentage') ?? 80;
+      isAC = prefs.getBool('isAC') ?? true;
+      amperage = prefs.getDouble('amperage') ?? 16;
+
+      // Actualiza el controlador al cargar la preferencia
+      _batteryController.text =
+          batteryCapacity > 0
+              ? (batteryCapacity.truncateToDouble() == batteryCapacity
+                  ? batteryCapacity.toInt().toString()
+                  : batteryCapacity.toString())
+              : '';
+    });
+  }
+
+  Future<void> _savePreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('batteryCapacity', batteryCapacity);
+    await prefs.setDouble('currentPercentage', currentPercentage);
+    await prefs.setDouble('targetPercentage', targetPercentage);
+    await prefs.setBool('isAC', isAC);
+    await prefs.setDouble('amperage', amperage);
+  }
+
   double _calculateChargingTime() {
     if (batteryCapacity <= 0 || targetPercentage <= currentPercentage) return 0;
 
@@ -52,9 +97,7 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
   @override
   Widget build(BuildContext context) {
     double timeInHours = _calculateChargingTime();
-    Duration duration = Duration(
-      minutes: (timeInHours * 60).round(),
-    ); // para manejar mejor hh:mm
+    Duration duration = Duration(minutes: (timeInHours * 60).round());
     DateTime finishTime = DateTime.now().add(duration);
     String formattedTime = DateFormat('HH:mm').format(finishTime);
 
@@ -66,7 +109,9 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(
                   borderSide: BorderSide(
@@ -90,10 +135,12 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              controller: _batteryController,
               onChanged: (value) {
                 setState(() {
                   batteryCapacity = double.tryParse(value) ?? 0;
                 });
+                _savePreferences();
               },
             ),
             const SizedBox(height: 24),
@@ -109,6 +156,7 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
                 setState(() {
                   currentPercentage = value;
                 });
+                _savePreferences();
               },
             ),
             Text('Porcentaje objetivo: ${targetPercentage.toInt()}%'),
@@ -123,6 +171,7 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
                 setState(() {
                   targetPercentage = value;
                 });
+                _savePreferences();
               },
             ),
             const SizedBox(height: 12),
@@ -136,6 +185,7 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
                     setState(() {
                       isAC = true;
                     });
+                    _savePreferences();
                   },
                   selectedColor: Colors.blue,
                 ),
@@ -147,6 +197,7 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
                     setState(() {
                       isAC = false;
                     });
+                    _savePreferences();
                   },
                   selectedColor: Colors.blue,
                 ),
@@ -165,6 +216,7 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
                 setState(() {
                   amperage = value;
                 });
+                _savePreferences();
               },
             ),
             const SizedBox(height: 20),
