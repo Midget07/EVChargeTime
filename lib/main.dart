@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Para formatear la hora
-import 'package:shared_preferences/shared_preferences.dart'; // Nuevo: para guardar preferencias
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const EVChargeCalculatorApp());
@@ -40,10 +40,19 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
   bool isAC = true;
   double amperage = 16;
 
+  late TextEditingController _batteryController;
+
   @override
   void initState() {
     super.initState();
-    _loadSavedPreferences(); // Carga datos guardados al inicio
+    _batteryController = TextEditingController();
+    _loadSavedPreferences();
+  }
+
+  @override
+  void dispose() {
+    _batteryController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSavedPreferences() async {
@@ -55,6 +64,14 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
       targetPercentage = prefs.getDouble('targetPercentage') ?? 80;
       isAC = prefs.getBool('isAC') ?? true;
       amperage = prefs.getDouble('amperage') ?? 16;
+
+      // Actualiza el controlador al cargar la preferencia
+      _batteryController.text =
+          batteryCapacity > 0
+              ? (batteryCapacity.truncateToDouble() == batteryCapacity
+                  ? batteryCapacity.toInt().toString()
+                  : batteryCapacity.toString())
+              : '';
     });
   }
 
@@ -92,7 +109,9 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(
                   borderSide: BorderSide(
@@ -116,9 +135,7 @@ class _ChargeCalculatorScreenState extends State<ChargeCalculatorScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              controller: TextEditingController(
-                text: batteryCapacity > 0 ? batteryCapacity.toString() : '',
-              ),
+              controller: _batteryController,
               onChanged: (value) {
                 setState(() {
                   batteryCapacity = double.tryParse(value) ?? 0;
